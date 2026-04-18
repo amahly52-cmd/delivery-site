@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>دلفري</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+
+<style>
+body {
+    margin:0;
+    font-family: Arial;
+    background:#0f0f0f;
+    color:white;
+    direction: rtl;
+}
+
+.topbar {
+    background:black;
+    padding:15px;
+    text-align:center;
+    color:red;
+    font-size:20px;
+    font-weight:bold;
+}
+
+#map {
+    height:50vh;
+}
+
+.panel {
+    background:#111;
+    padding:15px;
+    border-radius:20px 20px 0 0;
+}
+
+input, select {
+    width:100%;
+    padding:12px;
+    margin:5px 0;
+    border:none;
+    border-radius:10px;
+    background:#222;
+    color:white;
+}
+
+button {
+    width:100%;
+    padding:15px;
+    background:red;
+    border:none;
+    border-radius:10px;
+    color:white;
+    font-size:18px;
+    margin-top:10px;
+}
+
+.notice {
+    color:yellow;
+    font-size:14px;
+    margin-top:10px;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="topbar">🚀 دلفري</div>
+
+<div id="map"></div>
+
+<div class="panel">
+
+<input id="from" placeholder="📍 موقعك">
+<input id="to" placeholder="🏠 الوجهة">
+
+<select id="payment">
+  <option value="cash">💵 الدفع عند الاستلام</option>
+  <option value="bank">📲 تحويل بنكي</option>
+</select>
+
+<p id="bankInfo" style="display:none; color:#00ff88;">
+📲 رقم الدفع: 48870769
+</p>
+
+<button onclick="sendProof()">📸 إرسال صورة الدفع</button>
+
+<button onclick="startOrder()">🚀 تأكيد الطلب</button>
+
+<p class="notice">
+⚠️ لن يتم تنفيذ الطلب حتى يتم التحقق من الدفع من قبل الإدارة
+</p>
+
+<div id="status"></div>
+
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script>
+// الخريطة
+var map = L.map('map').setView([18.0735, -15.9582], 13);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+// موقع المستخدم
+var userMarker = L.marker([18.0735, -15.9582]).addTo(map);
+
+// تحديد الموقع الحقيقي
+navigator.geolocation.getCurrentPosition(function(pos){
+    let lat = pos.coords.latitude;
+    let lng = pos.coords.longitude;
+
+    userMarker.setLatLng([lat, lng])
+    .bindPopup("📍 موقعك").openPopup();
+
+    map.setView([lat, lng], 14);
+});
+
+// سائقين
+var drivers = [];
+
+for (let i = 0; i < 5; i++) {
+    let lat = 18.0735 + (Math.random() - 0.5) * 0.02;
+    let lng = -15.9582 + (Math.random() - 0.5) * 0.02;
+
+    let d = L.marker([lat, lng]).addTo(map)
+    .bindPopup("🚗 سائق");
+
+    drivers.push(d);
+}
+
+// تحريك السائقين
+setInterval(() => {
+    drivers.forEach(d => {
+        let p = d.getLatLng();
+        d.setLatLng([
+            p.lat + (Math.random()-0.5)*0.001,
+            p.lng + (Math.random()-0.5)*0.001
+        ]);
+    });
+}, 2000);
+
+// إظهار رقم البنك
+document.getElementById("payment").addEventListener("change", function(){
+    let info = document.getElementById("bankInfo");
+    if(this.value === "bank"){
+        info.style.display = "block";
+    } else {
+        info.style.display = "none";
+    }
+});
+
+// إرسال واتساب
+function sendProof(){
+    let msg = "مرحبا، هذه صورة تحويل الدفع";
+    let phone = "22248870769";
+    let url = "https://wa.me/" + phone + "?text=" + encodeURIComponent(msg);
+    window.open(url);
+}
+
+// أقرب سائق
+function nearestDriver(user){
+    let min = 9999;
+    let chosen;
+
+    drivers.forEach(d=>{
+        let p = d.getLatLng();
+        let dist = Math.hypot(p.lat - user.lat, p.lng - user.lng);
+
+        if(dist < min){
+            min = dist;
+            chosen = d;
+        }
+    });
+
+    return chosen;
+}
+
+// الطلب
+function startOrder(){
+    let user = userMarker.getLatLng();
+    let driver = nearestDriver(user);
+
+    driver.bindPopup("🚗 في الطريق إليك").openPopup();
+
+    document.getElementById("status").innerHTML =
+    "🚀 جاري التوصيل بعد التحقق من الدفع...";
+
+    let interval = setInterval(()=>{
+        let p = driver.getLatLng();
+
+        let newLat = p.lat + (user.lat - p.lat)*0.1;
+        let newLng = p.lng + (user.lng - p.lng)*0.1;
+
+        driver.setLatLng([newLat, newLng]);
+
+        if(Math.abs(newLat - user.lat) < 0.0001){
+            clearInterval(interval);
+            document.getElementById("status").innerHTML =
+            "✅ وصل السائق!";
+        }
+    },1000);
+}
+</script>
+
+</body>
+</html>
